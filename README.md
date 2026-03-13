@@ -1,147 +1,175 @@
-# Payrails + Stripe Billing BYOP (Lovable / Vite Edition)
+# Payrails Billing Integration - Reference Implementation
 
-This project is now a standard **Vite + React** application with backend responsibilities moved to **Lovable Cloud / Supabase**:
+This reference implementation demonstrates how to integrate **Payrails** with your existing billing provider (Stripe Billing or Chargebee) to process subscription payments. Use this as a starting point for building your own billing integration or as a reference for best practices.
 
-- Frontend: React 19 + React Router + Tailwind v4
-- Backend: Supabase Edge Function (`functions/api`) + Postgres + Auth + Storage
-- Integrations: Payrails (mTLS + OAuth), Stripe Billing, Chargebee demo flow
+## Overview
 
-## Architecture
+This project provides a complete end-to-end example of:
 
-### Frontend
-- SPA routes:
-  - `/`
-  - `/checkout`
-  - `/checkout/success`
-  - `/checkout/failure`
-  - `/profile`
-- Providers:
-  - `AuthProvider` (anonymous Supabase session bootstrap)
-  - `BillingEngineProvider`
-  - `SubscriptionProvider`
-  - `PaymentRecordProvider`
-- API client wrapper:
-  - `src/api/cloudApi.ts`
-  - Calls `${VITE_SUPABASE_URL}/functions/v1/api/*` with bearer token
+- **Payment collection via Payrails** - Securely collect card and PayPal payments using the Payrails Web SDK
+- **Subscription management** - Create and manage subscriptions with Stripe Billing or Chargebee
+- **Webhook handling** - Process billing events and record payments automatically
+- **Stored payment instruments** - Allow customers to save and manage their payment methods
 
-### Backend (Supabase Edge)
-- Single routed edge function: `supabase/functions/api/index.ts`
-- Endpoint parity with legacy API:
-  - `POST /payrails/init`
-  - `POST /payrails/execution`
-  - `POST /payrails/lookup`
-  - `GET /payrails/instruments`
-  - `DELETE /payrails/instruments/:id`
-  - `POST /subscriptions`
-  - `POST /stripe/record-payment`
-  - `POST /stripe/payment-method/update-metadata`
-  - `POST /stripe/webhook`
-  - `POST /chargebee/estimate`
-  - `POST /chargebee/subscriptions`
-  - `POST /chargebee/record-payment`
-  - `POST /chargebee/webhook`
+### Technology Stack
 
-## Database / Storage
+| Layer | Technology |
+|-------|------------|
+| Frontend | React + Vite + Tailwind CSS |
+| Backend | Supabase Edge Functions |
+| Database | Supabase (PostgreSQL) |
+| Payments | Payrails |
+| Billing | Stripe Billing or Chargebee |
 
-SQL migration: `supabase/migrations/20260305130000_lovable_cloud_init.sql`
+## Prerequisites
 
-Creates:
-- `profiles`
-- `subscriptions`
-- `payment_records`
-- `processed_invoices`
-- `webhook_events`
+Before getting started, ensure you have:
 
-Also creates private storage bucket:
-- `webhook-events`
+- A **Payrails** account with API credentials (client ID, client secret, mTLS certificates)
+- A **Stripe** or **Chargebee** account with API keys
+- A **Supabase** project (free tier is sufficient for testing)
+- Node.js 18+ and npm installed locally
 
-RLS:
-- User-owned tables (`profiles`, `subscriptions`, `payment_records`) scoped to `auth.uid()`.
-- Internal tables (`processed_invoices`, `webhook_events`) restricted to service role.
-- Storage bucket policies restricted to service role.
+## Quick Start
 
-## Environment
+### 1. Clone and Install
 
-Use `.env.local.example` for local frontend env and secret reference.
-
-### Frontend (Vite)
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-- `VITE_PAYRAILS_ENV`
-- `VITE_PAYRAILS_WORKSPACE_ID`
-
-### Supabase Edge secrets
-- `PAYRAILS_CLIENT_ID`
-- `PAYRAILS_CLIENT_SECRET`
-- `CLIENT_CERT_PEM`
-- `CLIENT_KEY_PEM`
-- `PAYRAILS_BASE_URL`
-- `PAYRAILS_WORKFLOW_CODE`
-- `PAYRAILS_ENV`
-- `PAYRAILS_WORKSPACE_ID`
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `STRIPE_CUSTOM_PAYMENT_METHOD_TYPE_ID`
-- `CHARGEBEE_SITE`
-- `CHARGEBEE_API_KEY`
-- `CHARGEBEE_BASE_URL`
-
-## Local Development
-
-1. Install dependencies:
 ```bash
+git clone <repository-url>
+cd payrails-billing-byop
 npm install
 ```
 
-2. Set frontend env:
-```bash
-cp .env.local.example .env.local
-# fill VITE_* values
+### 2. Configure Environment
+
+Create a `.env.local` file with your frontend configuration:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-key
+VITE_PAYRAILS_ENV=sandbox
+VITE_PAYRAILS_WORKSPACE_ID=your-workspace-id
 ```
 
-3. Start frontend:
+### 3. Run Locally
+
 ```bash
 npm run dev
 ```
 
-4. Run checks:
-```bash
-npm run typecheck
-npm run lint
-npm run build
-npm run preview
-```
+The application will be available at `http://localhost:5173`.
 
-## Supabase / Lovable Deployment
+## Deployment
 
-1. Link project and set secrets:
+### Setting Up Supabase
+
+1. **Install the Supabase CLI** and authenticate:
+
 ```bash
+npm install -g supabase
 supabase login
-supabase link --project-ref <project-ref>
-supabase secrets set \
-  PAYRAILS_CLIENT_ID=... \
-  PAYRAILS_CLIENT_SECRET=... \
-  CLIENT_CERT_PEM=... \
-  CLIENT_KEY_PEM=... \
-  STRIPE_SECRET_KEY=... \
-  STRIPE_WEBHOOK_SECRET=... \
-  STRIPE_CUSTOM_PAYMENT_METHOD_TYPE_ID=... \
-  CHARGEBEE_SITE=... \
-  CHARGEBEE_API_KEY=...
+supabase link --project-ref <your-project-ref>
 ```
 
-2. Push migration:
+2. **Configure secrets** in your Supabase project:
+
+```bash
+supabase secrets set \
+  PAYRAILS_CLIENT_ID="your-client-id" \
+  PAYRAILS_CLIENT_SECRET="your-client-secret" \
+  CLIENT_CERT_PEM="-----BEGIN CERTIFICATE-----..." \
+  CLIENT_KEY_PEM="-----BEGIN PRIVATE KEY-----..." \
+  PAYRAILS_BASE_URL="https://api.payrails.io" \
+  PAYRAILS_WORKFLOW_CODE="your-workflow-code" \
+  PAYRAILS_ENV="sandbox" \
+  PAYRAILS_WORKSPACE_ID="your-workspace-id" \
+  STRIPE_SECRET_KEY="sk_..." \
+  STRIPE_WEBHOOK_SECRET="whsec_..."
+```
+
+For Chargebee, also set:
+```bash
+supabase secrets set \
+  CHARGEBEE_SITE="your-site" \
+  CHARGEBEE_API_KEY="your-api-key" \
+  CHARGEBEE_BASE_URL="https://your-site.chargebee.com"
+```
+
+3. **Deploy the database schema**:
+
 ```bash
 supabase db push
 ```
 
-3. Deploy function:
+4. **Deploy the edge functions**:
+
 ```bash
 supabase functions deploy api --no-verify-jwt
 ```
 
-4. Configure frontend in Lovable with `VITE_*` vars and deploy.
+### Configuring Webhooks
 
-## SPA Routing Note
+Set up webhook endpoints in your billing provider to point to your deployed function:
 
-When deploying outside Lovable/Supabase hosting, configure your static host to rewrite unknown paths to `index.html` so deep-link refreshes do not 404.
+- **Stripe**: `https://your-project.supabase.co/functions/v1/api/stripe/webhook`
+- **Chargebee**: `https://your-project.supabase.co/functions/v1/api/chargebee/webhook`
+
+## Project Structure
+
+```
+├── src/
+│   ├── checkout/          # Checkout flow components
+│   ├── profile/            # Customer profile & saved instruments
+│   ├── context/            # React context providers
+│   ├── api/                # API client for backend calls
+│   └── hooks/              # Payrails SDK integration hooks
+├── supabase/
+│   ├── functions/api/      # Edge function (API endpoints)
+│   └── migrations/         # Database schema
+```
+
+## Customization
+
+### Adapting for Your Use Case
+
+This reference implementation is designed to be customized:
+
+1. **Products & Pricing** - Update the product definitions in `src/checkout/page.tsx`
+2. **Checkout Flow** - Modify the checkout components in `src/checkout/`
+3. **Styling** - Adjust Tailwind classes or update the theme
+4. **API Endpoints** - Extend `supabase/functions/api/` for additional business logic
+
+### Database Schema
+
+The included migration creates tables for:
+- `profiles` - Customer information
+- `subscriptions` - Subscription records
+- `payment_records` - Payment history
+- `processed_invoices` - Webhook deduplication
+- `webhook_events` - Event logging
+
+All tables include Row Level Security (RLS) policies.
+
+## API Reference
+
+The backend exposes these endpoints:
+
+| Endpoint | Description |
+|----------|-------------|
+| `POST /payrails/init` | Initialize a Payrails session |
+| `POST /payrails/execution` | Execute a payment |
+| `GET /payrails/instruments` | List saved payment methods |
+| `DELETE /payrails/instruments/:id` | Remove a saved payment method |
+| `POST /subscriptions` | Create a Stripe subscription |
+| `POST /chargebee/subscriptions` | Create a Chargebee subscription |
+
+## Support
+
+For questions about this reference implementation or Payrails integration:
+
+- **Payrails Documentation**: https://docs.payrails.com
+- **Contact your Payrails representative** for implementation support
+
+---
+
+*This is a reference implementation provided by Payrails. Customize and adapt it to meet your specific requirements.*
