@@ -1,0 +1,11 @@
+{
+    "editor.codeActionsOnSave": {
+        "source.fixAll.eslint": "always"
+    },
+    "eslint.validate": [
+        "javascript",
+        "typescript",
+        "tsx"
+    ],
+    "typescript.tsdk": "node_modules/typescript/lib"
+}

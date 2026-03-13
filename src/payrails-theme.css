@@ -1,0 +1,128 @@
+/* Stripe-like theme for Payrails Drop-in */
+/* Focus on neutral background, subtle borders, consistent spacing, accessible focus ring */
+
+:root {
+  --pr-border-color: #d1d5db; /* gray-200 lighter border */
+  --pr-border-color-hover: #d1d5db; /* gray-300 */
+  --pr-border-radius: 10px; /* smaller radius for flat theme */
+  --pr-bg-surface: #ffffff;
+  --pr-bg-subtle: #f9fafb; /* gray-50 */
+  --pr-color-text: #111827; /* gray-900 */
+  --pr-color-text-muted: #6b7280; /* gray-500 */
+  --pr-color-error: #dc2626; /* red-600 */
+  --pr-color-brand: #312e81; /* Stripe indigo */
+  --pr-color-brand-hover: #312e81;
+  --pr-focus-ring: 0 0 0 2px #4f46e5; /* crisper focus ring */
+  --pr-transition: 120ms ease;
+  --pr-font-stack: system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji';
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --pr-border-color: #d1d5db; /* slate-700 subtle */
+    --pr-border-color-hover: #d1d5db; /* slate-600 */
+    --pr-bg-surface: #1f2937; /* gray-800 */
+    --pr-bg-subtle: #111827; /* gray-900 */
+    --pr-color-text: #f3f4f6; /* gray-100 */
+    --pr-color-text-muted: #9ca3af; /* gray-400 */
+    --pr-color-error: #f87171; /* red-400 */
+    --pr-color-brand: #312e81; /* indigo-300 */
+    --pr-color-brand-hover: #312e81; /* indigo-500 */
+    --pr-focus-ring: 0 0 0 3px #4f46e5;
+  }
+}
+
+/* Payment button */
+.payrails-payment-button {
+  width: 100%;
+  background: var(--pr-color-brand);
+  color: #aaa;
+  font-weight: 600;
+  font-size: 14px;
+  padding: 10px 14px;
+  border-radius: var(--pr-border-radius);
+  border: 1px solid var(--pr-color-brand);
+  cursor: pointer;
+  transition: background var(--pr-transition), box-shadow var(--pr-transition), opacity var(--pr-transition);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: .3px;
+  box-shadow: none;
+}
+.payrails-payment-button:hover {
+  background: var(--pr-color-brand-hover);
+}
+.payrails-payment-button:disabled, .payrails-payment-button.loading {
+  opacity: .55;
+  cursor: not-allowed;
+  filter: grayscale(0.15); /* subtle disabled feel */
+}
+.payrails-payment-button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--pr-color-brand), var(--pr-focus-ring);
+}
+
+/* Specific card payment button id override */
+#payrails-card-payment-button {
+  border-radius: 10px !important;
+  background: var(--pr-color-brand) !important;
+}
+div#payrails-card-form {
+  display: block !important;
+}
+
+.payrails-card-form {
+  display: block !important;
+  align-items: center;
+}
+
+#payrails-paypal-button {
+  width: 100% !important;
+}
+
+/* Loading overlay */
+.payrails-loading-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(255,255,255,0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--pr-border-radius);
+  z-index: 10;
+}
+.payrails-spinner {
+  width: 28px;
+  height: 28px;
+  border: 4px solid rgba(0,0,0,0.1);
+  border-top-color: var(--pr-color-brand);
+  border-radius: 50%;
+  animation: pr-spin 0.9s linear infinite;
+}
+@keyframes pr-spin { to { transform: rotate(360deg); } }
+
+/* Success / failure states */
+.payrails-auth-success {
+  background: #ecfdf5; /* green-50 */
+  border: 1px solid #10b981; /* green-500 */
+  color: #065f46; /* green-700 */
+  padding: 8px 12px;
+  border-radius: var(--pr-border-radius);
+  font-size: 13px;
+}
+.payrails-auth-failed {
+  background: #fef2f2; /* red-50 */
+  border: 1px solid var(--pr-color-error);
+  color: var(--pr-color-error);
+  padding: 8px 12px;
+  border-radius: var(--pr-border-radius);
+  font-size: 13px;
+}
+
+/* Optional animation mimic */
+.payrails-fade-enter { opacity: 0; transform: translateY(4px); }
+.payrails-fade-enter-active { opacity: 1; transform: translateY(0); transition: opacity var(--pr-transition), transform var(--pr-transition); }
+.payrails-fade-exit { opacity: 1; }
+.payrails-fade-exit-active { opacity: 0; transition: opacity 100ms ease; }
