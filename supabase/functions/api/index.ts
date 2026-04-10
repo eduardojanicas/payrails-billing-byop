@@ -3,7 +3,7 @@ import Stripe from 'npm:stripe@20.0.0';
 import Chargebee from 'npm:chargebee@3.16.0';
 import { badRequest, corsPreflight, json, notFound, serverError, unauthorized, upstreamError } from '../_shared/json.ts';
 import { createLogger } from '../_shared/logger.ts';
-import { runtimeEnv, hasChargebeeConfigured, hasStripeConfigured } from '../_shared/env.ts';
+import { runtimeEnv, hasChargebeeConfigured, hasStripeConfigured, hasRecurlyConfigured } from '../_shared/env.ts';
 import { fetchAccessToken, payrailsJson } from '../_shared/payrails.ts';
 import { ensurePaymentRecord, attachPaymentRecordToInvoice } from '../_shared/stripePaymentRecords.ts';
 import { isValidCurrency, normalizeCurrency } from '../_shared/currency.ts';
@@ -1159,6 +1159,275 @@ app.post('/chargebee/webhook', async (c) => {
     processed: true,
     processedOffSession,
     paymentRecord,
+  });
+});
+
+// ─── Recurly routes ───────────────────────────────────────────────────────────
+
+import {
+  createAccount as recurlyCreateAccount,
+  createSubscription as recurlyCreateSubscription,
+  recordExternalTransaction as recurlyRecordExternalTransaction,
+  getSubscription as recurlyGetSubscription,
+  getAccount as recurlyGetAccount,
+} from '../_shared/recurly.ts';
+
+app.post('/recurly/subscriptions', async (c) => {
+  const user = await requireUser(c);
+  if (!user) return unauthorized();
+
+  if (!hasRecurlyConfigured()) return serverError('Recurly not configured');
+
+  let body: any = {};
+  try { body = await c.req.json(); } catch { body = {}; }
+
+  const { holderReference, email } = body;
+  if (!holderReference) return badRequest('Missing holderReference');
+  if (!email) return badRequest('Missing email');
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) return badRequest('Invalid email format');
+
+  const accountCode = `rc_${crypto.randomUUID()}`;
+  const PLAN_CODE = 'standard';
+  const CURRENCY = 'GBP';
+
+  try {
+    const account = await recurlyCreateAccount({ code: accountCode, email, holderReference });
+
+    const subscription = await recurlyCreateSubscription({
+      accountCode,
+      planCode: PLAN_CODE,
+      currency: CURRENCY,
+    });
+
+    let invoiceNumber: string | undefined;
+    if (subscription.pending_setup_invoice?.id) {
+      invoiceNumber = subscription.pending_setup_invoice.id;
+    }
+    if (!invoiceNumber && subscription.active_invoice_id) {
+      invoiceNumber = subscription.active_invoice_id;
+    }
+
+    const subscriptionId = subscription.id || subscription.uuid;
+
+    const { data: inserted } = await serviceClient
+      .from('subscriptions')
+      .insert({
+        user_id: user.id,
+        engine: 'recurly',
+        holder_reference: holderReference,
+        customer_id: accountCode,
+        subscription_id: subscriptionId,
+        invoice_id: invoiceNumber || null,
+        amount: String(1199),
+        currency: CURRENCY,
+        email,
+        payload: { accountId: account.id },
+      })
+      .select('id')
+      .single();
+
+    return json({
+      id: inserted?.id,
+      userId: user.id,
+      customer: { id: accountCode, email },
+      subscription: { id: subscriptionId },
+      invoiceId: invoiceNumber,
+      holderReference,
+      amount: String(1199),
+      currency: CURRENCY,
+      email,
+    });
+  } catch (error) {
+    return serverError('Recurly subscription error', error instanceof Error ? error.message : String(error));
+  }
+});
+
+app.post('/recurly/record-payment', async (c) => {
+  const user = await requireUser(c);
+  if (!user) return unauthorized();
+
+  if (!hasRecurlyConfigured()) return serverError('Recurly not configured');
+
+  let body: any = {};
+  try { body = await c.req.json(); } catch { body = {}; }
+
+  const { invoiceId, amountMinor = 1199, currency = 'GBP', subscriptionId, instrumentId } = body;
+  if (!invoiceId) return badRequest('Missing invoiceId');
+
+  try {
+    const txnResult = await recurlyRecordExternalTransaction({
+      invoiceNumber: invoiceId,
+      amountMinor,
+      currency,
+      succeeded: true,
+      description: `Payrails payment (instrument: ${instrumentId || 'unknown'})`,
+    });
+
+    const paymentRecordId = txnResult?.id || `${invoiceId}_payment`;
+    const successAt = Date.now();
+
+    await serviceClient.from('payment_records').insert({
+      user_id: user.id,
+      engine: 'recurly',
+      payment_record_id: paymentRecordId,
+      invoice_id: invoiceId,
+      subscription_id: subscriptionId || null,
+      amount_minor: amountMinor,
+      currency,
+      status: 'succeeded',
+      payload: {
+        instrumentId,
+        successAt,
+        transactionId: txnResult?.id,
+      },
+    });
+
+    return json({
+      id: crypto.randomUUID(),
+      userId: user.id,
+      paymentRecordId,
+      invoiceId,
+      amount: amountMinor,
+      currency,
+      status: 'succeeded',
+      successAt,
+      subscriptionId,
+      instrumentId,
+    });
+  } catch (error) {
+    return serverError('Recurly record-payment error', error instanceof Error ? error.message : String(error));
+  }
+});
+
+app.post('/recurly/webhook', async (c) => {
+  const rawBody = await c.req.text();
+  let payload: any = {};
+  try { payload = rawBody ? JSON.parse(rawBody) : {}; } catch { payload = {}; }
+
+  const eventType = payload.event_type || payload.type || 'unknown';
+  const invoiceId = payload?.invoice?.id || payload?.content?.invoice?.id;
+
+  const payloadPath = await persistWebhookPayload('recurly', invoiceId || crypto.randomUUID(), rawBody);
+  await insertWebhookEvent({
+    source: 'recurly',
+    eventId: invoiceId,
+    eventType,
+    payloadPath,
+    status: 'received',
+  });
+
+  if (eventType !== 'charge_invoice.created') {
+    return json({ received: true, ignored: true });
+  }
+
+  if (!invoiceId) return badRequest('Missing invoice id');
+  if (!hasRecurlyConfigured()) return serverError('Recurly not configured');
+
+  const amountDueMinor = Math.round((payload?.invoice?.total || 0) * 100);
+  const currency = payload?.invoice?.currency || 'GBP';
+  const subscriptionId = payload?.invoice?.subscription_ids?.[0];
+
+  let holderReference: string | undefined;
+  let instrumentId: string | undefined;
+  if (subscriptionId) {
+    try {
+      const sub = await recurlyGetSubscription(subscriptionId);
+      if (sub.account?.code) {
+        const acct = await recurlyGetAccount(sub.account.code);
+        holderReference = acct?.username || undefined;
+      }
+    } catch { /* non-fatal */ }
+
+    if (!holderReference) {
+      const { data: subRow } = await serviceClient
+        .from('subscriptions')
+        .select('holder_reference')
+        .eq('engine', 'recurly')
+        .eq('subscription_id', subscriptionId)
+        .maybeSingle();
+      holderReference = subRow?.holder_reference || undefined;
+    }
+  }
+
+  if (await isInvoiceProcessed(invoiceId)) {
+    return json({ invoiceId, processed: true, duplicate: true });
+  }
+
+  let processedOffSession = false;
+  let paymentRecord: any = null;
+  let executionRefId: string | undefined;
+
+  if (amountDueMinor > 0) {
+    try {
+      const logger = createLogger({ route: '/recurly/webhook', invoiceId });
+      const executionResult = await executePayrailsWorkflow({
+        amount: amountDueMinor / 100,
+        currency,
+        invoiceId,
+        holderReference,
+        merchantReference: invoiceId,
+        paymentInstrumentId: instrumentId,
+      }, logger);
+
+      executionRefId = executionResult.referenceId;
+
+      await recurlyRecordExternalTransaction({
+        invoiceNumber: invoiceId,
+        amountMinor: amountDueMinor,
+        currency,
+        succeeded: executionResult.succeeded,
+        description: `Payrails webhook payment (ref: ${executionRefId})`,
+      });
+
+      if (executionResult.succeeded) {
+        await serviceClient.from('payment_records').insert({
+          engine: 'recurly',
+          user_id: null,
+          payment_record_id: `${invoiceId}_webhook_payment`,
+          invoice_id: invoiceId,
+          subscription_id: subscriptionId || null,
+          amount_minor: amountDueMinor,
+          currency,
+          status: 'succeeded',
+          payload: { source: 'webhook', executionId: executionRefId },
+        });
+        processedOffSession = true;
+        await markInvoiceProcessed(invoiceId, 'recurly', { executionId: executionRefId });
+      } else {
+        await serviceClient.from('payment_records').insert({
+          engine: 'recurly',
+          user_id: null,
+          payment_record_id: `${invoiceId}_webhook_payment_failed`,
+          invoice_id: invoiceId,
+          subscription_id: subscriptionId || null,
+          amount_minor: amountDueMinor,
+          currency,
+          status: 'failed',
+          payload: { source: 'webhook', executionId: executionRefId },
+        });
+      }
+    } catch (error) {
+      await insertWebhookEvent({
+        source: 'recurly',
+        eventId: invoiceId,
+        eventType,
+        status: 'failed',
+        details: { error: error instanceof Error ? error.message : String(error) },
+      });
+      return serverError('Recurly webhook processing error', error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  return json({
+    invoiceId,
+    subscriptionId,
+    currency,
+    amountDueMinor,
+    executionId: executionRefId,
+    processed: true,
+    processedOffSession,
   });
 });
 

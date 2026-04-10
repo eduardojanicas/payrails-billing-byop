@@ -14,7 +14,7 @@ interface SubscriptionData {
   customerId?: string;
   subscriptionId?: string;
   email?: string;
-  engine?: 'stripe' | 'chargebee'; // which billing engine produced this subscription
+  engine?: 'stripe' | 'chargebee' | 'recurly'; // which billing engine produced this subscription
 }
 
 interface SubscriptionContextValue {
@@ -39,7 +39,18 @@ export const SubscriptionProvider: React.FC<{ children: React.ReactNode }> = ({ 
   const createNewSubscription = useCallback(async (holderReference: string) => {
     // Branch based on billing engine. Stripe retains existing logic; Chargebee uses its own endpoint.
     let json: any;
-    if (engine === 'chargebee') {
+    if (engine === 'recurly') {
+      const res = await cloudApi('/recurly/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ holderReference, email: 'johndoe@example.com', amountMinor: 2000, currency: 'EUR', couponId: 'first_95' })
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        throw new Error(`Subscription create failed (recurly): ${res.status} ${txt}`);
+      }
+      json = await res.json();
+    } else if (engine === 'chargebee') {
       // Step 1 (demo stub): fetch estimate for transparency (not persisted currently)
       try {
         await cloudApi('/chargebee/estimate', { method: 'POST' });

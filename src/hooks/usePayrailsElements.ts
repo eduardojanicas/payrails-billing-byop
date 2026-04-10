@@ -200,6 +200,34 @@ export function usePayrailsElements(options: UsePayrailsElementsOptions): UsePay
                         onCardFormReady?.()
                     },
                 },
+                styles: {
+                    inputFields: {
+                        all: {
+                            base: {
+                                border: '1px solid hsl(0 0% 90%)',
+                                borderRadius: '8px',
+                                margin: { top: 5, right: 0, bottom: 5, left: 0 },
+                                backgroundColor: '#ffffff',
+                                color: '#333333',
+                            },
+                            focus: {
+                                backgroundColor: '#ffffff',
+                                borderColor: 'hsl(24 100% 50%)',
+                                color: '#333333',
+                            },
+                            invalid: {
+                                backgroundColor: '#ffffff',
+                                borderColor: 'hsl(0 84% 60%)',
+                                color: '#333333',
+                            },
+                            complete: {
+                                backgroundColor: '#ffffff',
+                                borderColor: 'hsl(24 100% 50%)',
+                                color: '#333333',
+                            },
+                        },
+                    },
+                },
             })
             cardForm.mount(`#${CARD_FORM_ID}`)
         })
@@ -238,22 +266,18 @@ export function usePayrailsElements(options: UsePayrailsElementsOptions): UsePay
                         try {
                             setPaymentRecord(null)
                             setPaymentRecordError(null)
-                            const isChargebee = engineRef.current === 'chargebee'
-                            const endpoint = isChargebee ? '/chargebee/record-payment' : '/stripe/record-payment'
-                            const payload = isChargebee ? {
-                                invoiceId,
-                                amountMinor: amountMinor,
-                                currency,
-                                subscriptionId,
-                                instrumentId
-                            } : {
-                                invoiceId,
-                                instrumentId,
-                                customerId,
-                                amount: amountMinor,
-                                currency,
-                                successAt,
-                                subscriptionId,
+                            const currentEngine = engineRef.current
+                            let endpoint: string
+                            let payload: any
+                            if (currentEngine === 'recurly') {
+                                endpoint = '/recurly/record-payment'
+                                payload = { invoiceId, amountMinor, currency, subscriptionId, instrumentId }
+                            } else if (currentEngine === 'chargebee') {
+                                endpoint = '/chargebee/record-payment'
+                                payload = { invoiceId, amountMinor, currency, subscriptionId, instrumentId }
+                            } else {
+                                endpoint = '/stripe/record-payment'
+                                payload = { invoiceId, instrumentId, customerId, amount: amountMinor, currency, successAt, subscriptionId }
                             }
                             const res = await cloudApi(endpoint, {
                                 method: 'POST',
@@ -268,7 +292,7 @@ export function usePayrailsElements(options: UsePayrailsElementsOptions): UsePay
                                 return
                             }
                             const data = await res.json()
-                            setPaymentRecord({ ...data, engine: isChargebee ? 'chargebee' : 'stripe' })
+                            setPaymentRecord({ ...data, engine: currentEngine })
                             setAuthorizing(false)
                             navigateRef.current('/checkout/success', { replace: true })
                         } catch (e: any) {
@@ -289,7 +313,7 @@ export function usePayrailsElements(options: UsePayrailsElementsOptions): UsePay
             setTimeout(() => {
                 const btn = paymentButtonContainerRef.current?.querySelector('button')
                 if (btn) {
-                    (btn as HTMLButtonElement).className = 'w-full rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-xs hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-gray-50 focus:outline-hidden disabled:opacity-50 disabled:cursor-not-allowed'
+                    (btn as HTMLButtonElement).className = 'w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90 focus:ring-2 focus:ring-brand focus:ring-offset-2 focus:ring-offset-background focus:outline-hidden disabled:opacity-50 disabled:cursor-not-allowed'
                 }
             }, 0)
         })
@@ -331,22 +355,18 @@ export function usePayrailsElements(options: UsePayrailsElementsOptions): UsePay
                         try {
                             setPaymentRecord(null)
                             setPaymentRecordError(null)
-                            const isChargebee = engineRef.current === 'chargebee'
-                            const endpoint = isChargebee ? '/chargebee/record-payment' : '/stripe/record-payment'
-                            const payload = isChargebee ? {
-                                invoiceId,
-                                amountMinor: amountMinor,
-                                currency,
-                                subscriptionId,
-                                instrumentId
-                            } : {
-                                invoiceId,
-                                instrumentId,
-                                customerId,
-                                amount: amountMinor,
-                                currency,
-                                successAt,
-                                subscriptionId,
+                            const currentEngine = engineRef.current
+                            let endpoint: string
+                            let payload: any
+                            if (currentEngine === 'recurly') {
+                                endpoint = '/recurly/record-payment'
+                                payload = { invoiceId, amountMinor, currency, subscriptionId, instrumentId }
+                            } else if (currentEngine === 'chargebee') {
+                                endpoint = '/chargebee/record-payment'
+                                payload = { invoiceId, amountMinor, currency, subscriptionId, instrumentId }
+                            } else {
+                                endpoint = '/stripe/record-payment'
+                                payload = { invoiceId, instrumentId, customerId, amount: amountMinor, currency, successAt, subscriptionId }
                             }
                             const res = await cloudApi(endpoint, {
                                 method: 'POST',
@@ -361,7 +381,7 @@ export function usePayrailsElements(options: UsePayrailsElementsOptions): UsePay
                                 return
                             }
                             const data = await res.json()
-                            setPaymentRecord({ ...data, engine: isChargebee ? 'chargebee' : 'stripe' })
+                            setPaymentRecord({ ...data, engine: currentEngine })
                             setAuthorizing(false)
                             navigateRef.current('/checkout/success', { replace: true })
                         } catch (e: any) {

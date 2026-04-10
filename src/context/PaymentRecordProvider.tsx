@@ -14,7 +14,7 @@ export interface PaymentRecord {
 	currency?: string;
 	successAt?: number | string; // server may return seconds; UI converts
 	status?: string; // e.g. 'paid' for Chargebee stub
-	engine?: 'stripe' | 'chargebee';
+	engine?: 'stripe' | 'chargebee' | 'recurly';
 	[key: string]: any; // allow additional server fields
 }
 

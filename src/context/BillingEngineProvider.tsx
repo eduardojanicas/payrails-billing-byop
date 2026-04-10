@@ -11,7 +11,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-export type BillingEngine = 'stripe' | 'chargebee';
+export type BillingEngine = 'stripe' | 'chargebee' | 'recurly';
 
 interface BillingEngineContextValue {
   engine: BillingEngine;
@@ -28,7 +28,7 @@ export const BillingEngineProvider: React.FC<{ children: React.ReactNode }> = ({
     if (typeof window === 'undefined') return 'stripe';
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw === 'stripe' || raw === 'chargebee') return raw;
+      if (raw === 'stripe' || raw === 'chargebee' || raw === 'recurly') return raw;
     } catch { /* ignore */ }
     return 'stripe';
   });

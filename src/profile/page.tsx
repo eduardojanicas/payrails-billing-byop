@@ -74,40 +74,26 @@ export default function ProfilePage() {
         {/* Billing engine selection (demo only) */}
         <div className="rounded-md border border-gray-200 bg-gray-50 p-4 space-y-2">
           <h2 className="text-sm font-semibold text-gray-900">Billing Engine</h2>
-          <p className="text-xs text-gray-600">Select whether the demo uses Stripe Billing or Chargebee. Changing this will recreate the subscription context for demo clarity.</p>
+          <p className="text-xs text-gray-600">Select which billing engine the demo uses. Changing this will recreate the subscription context for demo clarity.</p>
           <div className="flex gap-6 items-center">
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="radio"
-                name="billing-engine"
-                value="stripe"
-                checked={engine === 'stripe'}
-                onChange={async () => {
-                  setEngine('stripe');
-                  resetPaymentRecord();
-                  // Allow state update to commit before recreating subscription (avoid stale engine closure)
-                  await new Promise(r => setTimeout(r, 0));
-                  await restartDemo();
-                }}
-              />
-              Stripe Billing
-            </label>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="radio"
-                name="billing-engine"
-                value="chargebee"
-                checked={engine === 'chargebee'}
-                onChange={async () => {
-                  setEngine('chargebee');
-                  resetPaymentRecord();
-                  // microtask delay to ensure SubscriptionProvider re-renders with new engine before restart
-                  await new Promise(r => setTimeout(r, 0));
-                  await restartDemo();
-                }}
-              />
-              Chargebee
-            </label>
+            {(['stripe', 'chargebee', 'recurly'] as const).map(eng => (
+              <label key={eng} className="flex items-center gap-2 text-xs text-foreground">
+                <input
+                  type="radio"
+                  name="billing-engine"
+                  value={eng}
+                  checked={engine === eng}
+                  onChange={async () => {
+                    setEngine(eng);
+                    resetPaymentRecord();
+                    await new Promise(r => setTimeout(r, 0));
+                    await restartDemo();
+                  }}
+                  className="accent-brand"
+                />
+                {eng === 'stripe' ? 'Stripe Billing' : eng === 'chargebee' ? 'Chargebee' : 'Recurly'}
+              </label>
+            ))}
           </div>
           <div className="text-[10px] text-gray-500">Current: <code>{engine}</code></div>
         </div>
@@ -123,51 +109,21 @@ export default function ProfilePage() {
 
             <div className="md:col-span-2">
               <div className="grid grid-cols-1 gap-x-6 gap-y-8 sm:max-w-xl sm:grid-cols-6">
-                <div className="col-span-full">
-                  <label htmlFor="holder-reference" className="block text-sm/6 font-medium text-gray-900">
-                    Holder reference
-                  </label>
-                  <div className="mt-2">
-                    <p className="block w-full rounded-md bg-gray-100 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6">
-                      {subData.holderReference}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-span-full">
-                  <label htmlFor="customer-id" className="block text-sm/6 font-medium text-gray-900">
-                    Customer ID
-                  </label>
-                  <div className="mt-2">
-                    <p className="block w-full rounded-md bg-gray-100 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6">
-                      {subData.customerId}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-span-full">
-                  <label htmlFor="subscription-id" className="block text-sm/6 font-medium text-gray-900">
-                    Subscription ID
-                  </label>
-                  <div className="mt-2">
-                    <p className="block w-full rounded-md bg-gray-100 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6">
-                      {subData.subscriptionId}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="col-span-full">
-                  <label htmlFor="invoice-id" className="block text-sm/6 font-medium text-gray-900">
-                    Invoice ID
-                  </label>
-                  <div className="mt-2">
+                {[
+                  { label: 'Holder reference', value: subData.holderReference },
+                  { label: 'Customer ID', value: subData.customerId },
+                  { label: 'Subscription ID', value: subData.subscriptionId },
+                  { label: 'Invoice ID', value: subData.invoiceId },
+                ].map(item => (
+                  <div key={item.label} className="col-span-full">
+                    <label className="block text-sm/6 font-medium text-foreground">{item.label}</label>
                     <div className="mt-2">
-                      <p className="block w-full rounded-md bg-gray-100 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline-2 focus:-outline-offset-2 focus:outline-indigo-600 sm:text-sm/6">
-                        {subData.invoiceId}
+                      <p className="block w-full rounded-md bg-secondary px-3 py-1.5 text-base text-foreground ring-1 ring-border sm:text-sm/6">
+                        {item.value}
                       </p>
                     </div>
                   </div>
-                </div>
+                ))}
               </div>
             </div>
           </div>

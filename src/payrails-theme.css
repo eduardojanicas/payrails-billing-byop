@@ -1,42 +1,26 @@
-/* Stripe-like theme for Payrails Drop-in */
-/* Focus on neutral background, subtle borders, consistent spacing, accessible focus ring */
+/* Payrails Drop-in theme */
 
 :root {
-  --pr-border-color: #d1d5db; /* gray-200 lighter border */
-  --pr-border-color-hover: #d1d5db; /* gray-300 */
-  --pr-border-radius: 10px; /* smaller radius for flat theme */
-  --pr-bg-surface: #ffffff;
-  --pr-bg-subtle: #f9fafb; /* gray-50 */
-  --pr-color-text: #111827; /* gray-900 */
-  --pr-color-text-muted: #6b7280; /* gray-500 */
-  --pr-color-error: #dc2626; /* red-600 */
-  --pr-color-brand: #312e81; /* Stripe indigo */
-  --pr-color-brand-hover: #312e81;
-  --pr-focus-ring: 0 0 0 2px #4f46e5; /* crisper focus ring */
+  --pr-border-color: hsl(0 0% 90%);
+  --pr-border-color-hover: hsl(0 0% 80%);
+  --pr-border-radius: 8px;
+  --pr-bg-surface: hsl(0 0% 100%);
+  --pr-bg-subtle: hsl(0 0% 98%);
+  --pr-color-text: hsl(0 0% 20%);
+  --pr-color-text-muted: hsl(0 0% 45%);
+  --pr-color-error: hsl(0 84% 60%);
+  --pr-color-brand: hsl(0 0% 0%);
+  --pr-color-brand-hover: hsl(0 0% 15%);
+  --pr-focus-ring: 0 0 0 2px hsl(24 100% 50%);
   --pr-transition: 120ms ease;
-  --pr-font-stack: system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,'Noto Sans',sans-serif,'Apple Color Emoji','Segoe UI Emoji','Segoe UI Symbol','Noto Color Emoji';
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --pr-border-color: #d1d5db; /* slate-700 subtle */
-    --pr-border-color-hover: #d1d5db; /* slate-600 */
-    --pr-bg-surface: #1f2937; /* gray-800 */
-    --pr-bg-subtle: #111827; /* gray-900 */
-    --pr-color-text: #f3f4f6; /* gray-100 */
-    --pr-color-text-muted: #9ca3af; /* gray-400 */
-    --pr-color-error: #f87171; /* red-400 */
-    --pr-color-brand: #312e81; /* indigo-300 */
-    --pr-color-brand-hover: #312e81; /* indigo-500 */
-    --pr-focus-ring: 0 0 0 3px #4f46e5;
-  }
+  --pr-font-stack: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
 /* Payment button */
 .payrails-payment-button {
   width: 100%;
   background: var(--pr-color-brand);
-  color: #aaa;
+  color: #fff;
   font-weight: 600;
   font-size: 14px;
   padding: 10px 14px;
@@ -56,7 +40,7 @@
 .payrails-payment-button:disabled, .payrails-payment-button.loading {
   opacity: .55;
   cursor: not-allowed;
-  filter: grayscale(0.15); /* subtle disabled feel */
+  filter: grayscale(0.15);
 }
 .payrails-payment-button:focus-visible {
   outline: none;
@@ -65,16 +49,22 @@
 
 /* Specific card payment button id override */
 #payrails-card-payment-button {
-  border-radius: 10px !important;
+  border-radius: 8px !important;
   background: var(--pr-color-brand) !important;
 }
 div#payrails-card-form {
   display: block !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
 .payrails-card-form {
   display: block !important;
   align-items: center;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
 }
 
 #payrails-paypal-button {
@@ -85,7 +75,7 @@ div#payrails-card-form {
 .payrails-loading-overlay {
   position: absolute;
   inset: 0;
-  background: rgba(255,255,255,0.6);
+  background: rgba(255,255,255,0.7);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
@@ -97,23 +87,64 @@ div#payrails-card-form {
   width: 28px;
   height: 28px;
   border: 4px solid rgba(0,0,0,0.1);
-  border-top-color: var(--pr-color-brand);
+  border-top-color: hsl(24 100% 50%);
   border-radius: 50%;
   animation: pr-spin 0.9s linear infinite;
 }
 @keyframes pr-spin { to { transform: rotate(360deg); } }
 
+/* Card form iframe fields — light theme overrides */
+.payrails-card-form input,
+.payrails-card-form select,
+.payrails-card-form textarea,
+div#payrails-card-form input,
+div#payrails-card-form select,
+div#payrails-card-form textarea {
+  background-color: var(--pr-bg-surface) !important;
+  color: var(--pr-color-text) !important;
+  border: 1px solid var(--pr-border-color) !important;
+  border-radius: var(--pr-border-radius) !important;
+  padding: 10px 12px !important;
+  font-family: var(--pr-font-stack) !important;
+  font-size: 14px !important;
+  transition: border-color var(--pr-transition), box-shadow var(--pr-transition) !important;
+}
+.payrails-card-form input:focus,
+.payrails-card-form select:focus,
+div#payrails-card-form input:focus,
+div#payrails-card-form select:focus {
+  border-color: hsl(24 100% 50%) !important;
+  box-shadow: var(--pr-focus-ring) !important;
+  outline: none !important;
+}
+.payrails-card-form input::placeholder,
+div#payrails-card-form input::placeholder {
+  color: var(--pr-color-text-muted) !important;
+}
+.payrails-card-form label,
+div#payrails-card-form label {
+  color: var(--pr-color-text) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  font-family: var(--pr-font-stack) !important;
+}
+.payrails-card-form .error,
+div#payrails-card-form .error {
+  color: var(--pr-color-error) !important;
+  font-size: 12px !important;
+}
+
 /* Success / failure states */
 .payrails-auth-success {
-  background: #ecfdf5; /* green-50 */
-  border: 1px solid #10b981; /* green-500 */
-  color: #065f46; /* green-700 */
+  background: hsl(160 60% 95%);
+  border: 1px solid hsl(160 84% 39%);
+  color: hsl(160 84% 30%);
   padding: 8px 12px;
   border-radius: var(--pr-border-radius);
   font-size: 13px;
 }
 .payrails-auth-failed {
-  background: #fef2f2; /* red-50 */
+  background: hsl(0 80% 95%);
   border: 1px solid var(--pr-color-error);
   color: var(--pr-color-error);
   padding: 8px 12px;

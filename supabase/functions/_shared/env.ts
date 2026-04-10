@@ -13,6 +13,8 @@ export interface RuntimeEnv {
   CHARGEBEE_BASE_URL?: string;
   CHARGEBEE_API_KEY?: string;
   CHARGEBEE_SITE?: string;
+  RECURLY_API_KEY?: string;
+  RECURLY_SUBDOMAIN?: string;
   SUPABASE_URL: string;
   SUPABASE_ANON_KEY: string;
   SUPABASE_SERVICE_ROLE_KEY: string;
@@ -46,6 +48,8 @@ export const runtimeEnv: RuntimeEnv = {
   CHARGEBEE_BASE_URL: optional('CHARGEBEE_BASE_URL'),
   CHARGEBEE_API_KEY: optional('CHARGEBEE_API_KEY'),
   CHARGEBEE_SITE: optional('CHARGEBEE_SITE'),
+  RECURLY_API_KEY: optional('RECURLY_API_KEY'),
+  RECURLY_SUBDOMAIN: optional('RECURLY_SUBDOMAIN'),
   SUPABASE_URL: required('SUPABASE_URL'),
   SUPABASE_ANON_KEY: required('SUPABASE_ANON_KEY'),
   SUPABASE_SERVICE_ROLE_KEY: required('SUPABASE_SERVICE_ROLE_KEY'),
@@ -57,4 +61,8 @@ export function hasStripeConfigured(): boolean {
 
 export function hasChargebeeConfigured(): boolean {
   return !!(runtimeEnv.CHARGEBEE_API_KEY && (runtimeEnv.CHARGEBEE_SITE || runtimeEnv.CHARGEBEE_BASE_URL));
+}
+
+export function hasRecurlyConfigured(): boolean {
+  return !!runtimeEnv.RECURLY_API_KEY;
 }

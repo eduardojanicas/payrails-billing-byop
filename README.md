@@ -1,13 +1,13 @@
 # Payrails Billing Integration - Reference Implementation
 
-This reference implementation demonstrates how to integrate **Payrails** with your existing billing provider (Stripe Billing or Chargebee) to process subscription payments. Use this as a starting point for building your own billing integration or as a reference for best practices.
+This reference implementation demonstrates how to integrate **Payrails** with your existing billing provider (Stripe Billing, Chargebee, or Recurly) to process subscription payments. Use this as a starting point for building your own billing integration or as a reference for best practices.
 
 ## Overview
 
 This project provides a complete end-to-end example of:
 
 - **Payment collection via Payrails** - Securely collect card and PayPal payments using the Payrails Web SDK
-- **Subscription management** - Create and manage subscriptions with Stripe Billing or Chargebee
+- **Subscription management** - Create and manage subscriptions with Stripe Billing, Chargebee, or Recurly
 - **Webhook handling** - Process billing events and record payments automatically
 - **Stored payment instruments** - Allow customers to save and manage their payment methods
 
@@ -15,18 +15,18 @@ This project provides a complete end-to-end example of:
 
 | Layer | Technology |
 |-------|------------|
-| Frontend | React + Vite + Tailwind CSS |
+| Frontend | React 19 + Vite + Tailwind CSS v4 |
 | Backend | Supabase Edge Functions |
 | Database | Supabase (PostgreSQL) |
 | Payments | Payrails |
-| Billing | Stripe Billing or Chargebee |
+| Billing | Stripe Billing, Chargebee, or Recurly |
 
 ## Prerequisites
 
 Before getting started, ensure you have:
 
 - A **Payrails** account with API credentials (client ID, client secret, mTLS certificates)
-- A **Stripe** or **Chargebee** account with API keys
+- A **Stripe**, **Chargebee**, or **Recurly** account with API keys
 - A **Supabase** project (free tier is sufficient for testing)
 - Node.js 18+ and npm installed locally
 
@@ -95,6 +95,13 @@ supabase secrets set \
   CHARGEBEE_BASE_URL="https://your-site.chargebee.com"
 ```
 
+For Recurly, also set:
+```bash
+supabase secrets set \
+  RECURLY_API_KEY="your-recurly-api-key" \
+  RECURLY_SUBDOMAIN="your-recurly-subdomain"
+```
+
 3. **Deploy the database schema**:
 
 ```bash
@@ -113,19 +120,27 @@ Set up webhook endpoints in your billing provider to point to your deployed func
 
 - **Stripe**: `https://your-project.supabase.co/functions/v1/api/stripe/webhook`
 - **Chargebee**: `https://your-project.supabase.co/functions/v1/api/chargebee/webhook`
+- **Recurly**: `https://your-project.supabase.co/functions/v1/api/recurly/webhook`
 
 ## Project Structure
 
 ```
 ├── src/
 │   ├── checkout/          # Checkout flow components
-│   ├── profile/            # Customer profile & saved instruments
-│   ├── context/            # React context providers
-│   ├── api/                # API client for backend calls
-│   └── hooks/              # Payrails SDK integration hooks
+│   ├── profile/           # Customer profile & saved instruments
+│   ├── context/           # React context providers (Auth, Billing, Subscription, Payment)
+│   ├── providers/         # AuthProvider (Supabase anonymous sessions)
+│   ├── api/               # API client (cloudApi wrapper)
+│   ├── hooks/             # Payrails SDK integration hooks (Elements, Drop-in)
+│   │   └── shared/        # Mount guard utilities (StrictMode safety)
+│   ├── utils/             # Shared utilities (logger, currency, payment redirect, instrument resolution)
+│   ├── layouts/           # App shell layout
+│   └── payrails-theme.css # Payrails SDK styling (card form, buttons, states)
 ├── supabase/
-│   ├── functions/api/      # Edge function (API endpoints)
-│   └── migrations/         # Database schema
+│   ├── functions/
+│   │   ├── api/           # Edge function (Hono router, all API endpoints)
+│   │   └── _shared/       # Shared backend modules (env, auth, db, payrails, logger, currency)
+│   └── migrations/        # Database schema & RLS policies
 ```
 
 ## Customization
@@ -136,8 +151,10 @@ This reference implementation is designed to be customized:
 
 1. **Products & Pricing** - Update the product definitions in `src/checkout/page.tsx`
 2. **Checkout Flow** - Modify the checkout components in `src/checkout/`
-3. **Styling** - Adjust Tailwind classes or update the theme
-4. **API Endpoints** - Extend `supabase/functions/api/` for additional business logic
+3. **Card Form Styling** - The Payrails card form accepts inline styles via the `styles` option in `usePayrailsElements` (for iframe-rendered fields) and CSS overrides in `src/payrails-theme.css` (for surrounding elements)
+4. **Payment Button Styling** - Post-mount class overrides in `usePayrailsElements` use design token classes (`bg-primary`, `text-primary-foreground`) for consistency with your theme
+5. **Billing Engine** - Switch between Stripe, Chargebee, and Recurly at runtime via the Profile page or `BillingEngineProvider`
+6. **API Endpoints** - Extend `supabase/functions/api/` for additional business logic
 
 ### Database Schema
 
@@ -161,7 +178,16 @@ The backend exposes these endpoints:
 | `GET /payrails/instruments` | List saved payment methods |
 | `DELETE /payrails/instruments/:id` | Remove a saved payment method |
 | `POST /subscriptions` | Create a Stripe subscription |
+| `POST /stripe/record-payment` | Record a payment in Stripe |
+| `POST /stripe/payment-method/update-metadata` | Update Stripe payment method metadata |
+| `POST /stripe/webhook` | Handle Stripe webhook events |
 | `POST /chargebee/subscriptions` | Create a Chargebee subscription |
+| `POST /chargebee/estimate` | Fetch a Chargebee billing estimate |
+| `POST /chargebee/record-payment` | Record a payment in Chargebee |
+| `POST /chargebee/webhook` | Handle Chargebee webhook events |
+| `POST /recurly/subscriptions` | Create a Recurly subscription |
+| `POST /recurly/record-payment` | Record a payment in Recurly |
+| `POST /recurly/webhook` | Handle Recurly webhook events |
 
 ## Support
 
